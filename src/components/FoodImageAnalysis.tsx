@@ -1,7 +1,6 @@
-
 import React, { useState, useRef } from "react";
 import { toast } from "sonner";
-import { Camera, X, Upload, PanelRight, CircleCheck } from "lucide-react";
+import { Camera, X, Upload, PanelRight, CircleCheck, Loader2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +8,8 @@ import { FoodEntry, saveFoodEntry, formatDate, calculateHealthScore } from "@/ut
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import RunwareImageAnalysis from "./RunwareImageAnalysis";
 
-// Mock AI analysis (in a real app, this would connect to a real AI service)
 const mockAnalyzeImage = async (imageFile: File): Promise<{ 
   foodName: string, 
   calories: number, 
@@ -18,10 +17,8 @@ const mockAnalyzeImage = async (imageFile: File): Promise<{
   carbs: number, 
   fat: number 
 }> => {
-  // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 2000));
   
-  // Return mock data (in a real app, this would come from the AI)
   return {
     foodName: "Salat mit Hähnchen",
     calories: 350,
@@ -43,6 +40,7 @@ const FoodImageAnalysis: React.FC = () => {
     fat: number 
   } | null>(null);
   const [notes, setNotes] = useState("");
+  const [useAI, setUseAI] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -85,7 +83,6 @@ const FoodImageAnalysis: React.FC = () => {
         const imageUrl = canvasRef.current.toDataURL('image/png');
         setCapturedImage(imageUrl);
         
-        // Convert data URL to File object
         canvasRef.current.toBlob((blob) => {
           if (blob) {
             const file = new File([blob], "captured-food.png", { type: "image/png" });
@@ -93,7 +90,6 @@ const FoodImageAnalysis: React.FC = () => {
           }
         });
         
-        // Stop the camera after capturing
         stopCamera();
       }
     }
@@ -116,6 +112,7 @@ const FoodImageAnalysis: React.FC = () => {
     setCapturedImage(null);
     setSelectedFile(null);
     setAnalysisResult(null);
+    setUseAI(false);
   };
   
   const analyzeImage = async () => {
@@ -127,7 +124,6 @@ const FoodImageAnalysis: React.FC = () => {
     setIsAnalyzing(true);
     
     try {
-      // In a real app, call your AI service here
       const result = await mockAnalyzeImage(selectedFile);
       setAnalysisResult(result);
       toast.success("Analyse abgeschlossen!");
@@ -137,6 +133,10 @@ const FoodImageAnalysis: React.FC = () => {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+  
+  const handleAIAnalysisComplete = (result: any) => {
+    setAnalysisResult(result);
   };
   
   const saveAnalysisResult = () => {
@@ -161,13 +161,11 @@ const FoodImageAnalysis: React.FC = () => {
     saveFoodEntry(foodEntry);
     toast.success("Eintrag gespeichert!");
     
-    // Reset everything
     resetCapture();
     setNotes("");
   };
   
   React.useEffect(() => {
-    // Cleanup function to stop camera when component unmounts
     return () => {
       stopCamera();
     };
@@ -240,23 +238,43 @@ const FoodImageAnalysis: React.FC = () => {
               </div>
               
               {!analysisResult ? (
-                <Button
-                  onClick={analyzeImage}
-                  disabled={isAnalyzing}
-                  className="w-full flex items-center justify-center gap-2"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Analysiere...
-                    </>
-                  ) : (
-                    <>
+                <div className="space-y-4">
+                  <div className="flex space-x-2">
+                    <Button
+                      className="flex-1 flex items-center justify-center gap-2"
+                      onClick={() => setUseAI(true)}
+                    >
                       <PanelRight className="h-4 w-4" />
-                      Bild analysieren
-                    </>
+                      KI-Analyse
+                    </Button>
+                    
+                    <Button
+                      onClick={analyzeImage}
+                      disabled={isAnalyzing}
+                      variant="secondary"
+                      className="flex-1 flex items-center justify-center gap-2"
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Analysiere...
+                        </>
+                      ) : (
+                        <>
+                          <PanelRight className="h-4 w-4" />
+                          Einfache Analyse
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {useAI && (
+                    <RunwareImageAnalysis 
+                      imageUrl={capturedImage} 
+                      onAnalysisComplete={handleAIAnalysisComplete}
+                    />
                   )}
-                </Button>
+                </div>
               ) : (
                 <div className="space-y-4">
                   <div className="bg-secondary p-4 rounded-md space-y-2">
@@ -306,7 +324,6 @@ const FoodImageAnalysis: React.FC = () => {
             </div>
           )}
           
-          {/* Hidden canvas for image capture */}
           <canvas ref={canvasRef} className="hidden" />
         </CardContent>
       </Card>
